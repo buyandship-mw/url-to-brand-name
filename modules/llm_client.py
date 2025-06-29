@@ -1,9 +1,9 @@
-# model_client.py
+# llm_client.py
 
 import os
 import time
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 load_dotenv()
 _client = OpenAI(
@@ -15,7 +15,7 @@ _client = OpenAI(
 def prompt_model(prompt: str, timeout: int = 3, retries: int = 0) -> str:
     """Send a prompt to OpenAI with retry logic and report the request duration."""
     last_error = None
-    for attempt in range(1, retries + 1):
+    for attempt in range(retries + 1):
         try:
             start = time.perf_counter()
             resp = _client.responses.create(
@@ -28,8 +28,12 @@ def prompt_model(prompt: str, timeout: int = 3, retries: int = 0) -> str:
             return resp.output[0].content[0].text
         except Exception as e:
             last_error = e
+            if isinstance(e, RateLimitError):
+                wait = min(2 ** attempt, 60)
+                print(f"OpenAI rate limit hit. Sleeping for {wait} seconds")
+                time.sleep(wait)
             if attempt < retries:
-                print(f"OpenAI error: {e}. Retrying ({attempt}/{retries})...")
+                print(f"OpenAI error: {e}. Retrying ({attempt + 1}/{retries})...")
             else:
                 print(f"OpenAI failed after {retries} attempts: {e}")
     raise RuntimeError(f"OpenAI API error: {last_error}")
