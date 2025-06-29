@@ -1,0 +1,9 @@
+Not sure if the item_name data is really rubbish, but typically a combination of URL + item name gets the job done (save the URL extraction API call).
+
+Prompt example:
+Extract the brand name.
+
+URL: "https://www.amazon.co.jp/-/en/gp/product/B09Z9819W8/ref%3Dox_sc_act_title_1?smid=A25SDIQ97SKNOX&th=1&psc=1"
+Item name: "New Balance Insole, Supportive Rebound Insole (RCP280 / LAM35689), Insole, Insert"
+
+Respond in JSON: {"name": <value>} or {"error": <reason>}'
