@@ -1,6 +1,7 @@
 # extraction.py
 
 import os
+import time
 from dotenv import load_dotenv
 from firecrawl import FirecrawlApp
 
@@ -18,11 +19,15 @@ def parse_metadata(meta: dict) -> str:
     return None
 
 def fetch_metadata(url: str, timeout: int = 120000) -> dict:
+    """Call Firecrawl to fetch page metadata and log how long it took."""
+    start = time.perf_counter()
     resp = APP.scrape_url(
         url=url,
         only_main_content=False,
         timeout=timeout
     )
+    duration = time.perf_counter() - start
+    print(f"Firecrawl request for {url} took {duration:.2f} seconds")
     return resp.metadata
 
 def extract_item_name(url: str) -> str:
