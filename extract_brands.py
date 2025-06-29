@@ -3,7 +3,7 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from modules.prompting import build_prompt
-from modules.model_client import prompt_model
+from modules.llm_client import prompt_model
 
 
 def process_row(row: dict) -> dict:
@@ -54,7 +54,7 @@ def main():
         print("item_names.csv not found")
         return
 
-    num_workers = os.cpu_count() or 1
+    num_workers = int(os.getenv("OPENAI_MAX_WORKERS", "2"))
     chunks = [rows[i::num_workers] for i in range(num_workers)]
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
