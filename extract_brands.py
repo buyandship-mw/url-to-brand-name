@@ -38,7 +38,7 @@ def worker(worker_id: int, rows: list[dict]):
     """Process a chunk of rows and write results to a worker specific file."""
     outfile = f"data/output/brands_{worker_id}.csv"
     fieldnames = ["month", "url", "item_count", "brand", "brand_error"]
-    with open(outfile, "w", newline="") as f:
+    with open(outfile, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
@@ -63,7 +63,7 @@ def main():
             future.result()
 
     fieldnames = ["month", "url", "item_count", "brand", "brand_error"]
-    with open("data/output/brands.csv", "w", newline="") as f_out:
+    with open("data/output/brands.csv", "a", newline="") as f_out:
         writer = csv.DictWriter(f_out, fieldnames=fieldnames)
         writer.writeheader()
         for i in range(num_workers):
