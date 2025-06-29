@@ -18,17 +18,27 @@ def parse_metadata(meta: dict) -> str:
             return v
     return None
 
-def fetch_metadata(url: str, timeout: int = 120000) -> dict:
-    """Call Firecrawl to fetch page metadata and log how long it took."""
-    start = time.perf_counter()
-    resp = APP.scrape_url(
-        url=url,
-        only_main_content=False,
-        timeout=timeout
-    )
-    duration = time.perf_counter() - start
-    print(f"Firecrawl request for {url} took {duration:.2f} seconds")
-    return resp.metadata
+def fetch_metadata(url: str, timeout: int = 10000, retries: int = 3) -> dict:
+    """Call Firecrawl to fetch page metadata with retry and log how long it took."""
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            start = time.perf_counter()
+            resp = APP.scrape_url(
+                url=url,
+                only_main_content=False,
+                timeout=timeout,
+            )
+            duration = time.perf_counter() - start
+            print(f"Firecrawl request for {url} took {duration:.2f} seconds")
+            return resp.metadata
+        except Exception as e:
+            last_error = e
+            if attempt < retries:
+                print(f"Firecrawl error: {e}. Retrying ({attempt}/{retries})...")
+            else:
+                print(f"Firecrawl failed after {retries} attempts: {e}")
+    raise RuntimeError(f"Firecrawl API error: {last_error}")
 
 def extract_item_name(url: str) -> str:
     meta = fetch_metadata(url)

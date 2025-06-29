@@ -12,16 +12,24 @@ _client = OpenAI(
     default_query={"api-version": "preview"},
 )
 
-def prompt_model(prompt: str) -> str:
-    """Send a prompt to OpenAI and report how long the request took."""
-    try:
-        start = time.perf_counter()
-        resp = _client.responses.create(
-            model=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
-            input=prompt
-        )
-        duration = time.perf_counter() - start
-        print(f"OpenAI request took {duration:.2f} seconds")
-        return resp.output[0].content[0].text
-    except Exception as e:
-        raise RuntimeError(f"OpenAI API error: {e}")
+def prompt_model(prompt: str, timeout: int = 3, retries: int = 3) -> str:
+    """Send a prompt to OpenAI with retry logic and report the request duration."""
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            start = time.perf_counter()
+            resp = _client.responses.create(
+                model=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+                input=prompt,
+                timeout=timeout,
+            )
+            duration = time.perf_counter() - start
+            print(f"OpenAI request took {duration:.2f} seconds")
+            return resp.output[0].content[0].text
+        except Exception as e:
+            last_error = e
+            if attempt < retries:
+                print(f"OpenAI error: {e}. Retrying ({attempt}/{retries})...")
+            else:
+                print(f"OpenAI failed after {retries} attempts: {e}")
+    raise RuntimeError(f"OpenAI API error: {last_error}")
