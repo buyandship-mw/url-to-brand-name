@@ -58,7 +58,7 @@ def main():
             reader = csv.DictReader(f)
             results.extend(reader)
 
-    with open("data/output/item_names.csv", "w", newline="") as f:
+    with open("data/output/item_names.csv", "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
         writer.writerows(results)
