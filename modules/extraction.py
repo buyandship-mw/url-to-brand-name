@@ -2,6 +2,7 @@
 
 import os
 import time
+import threading
 from dotenv import load_dotenv
 from firecrawl import FirecrawlApp
 import requests
@@ -11,6 +12,10 @@ API_KEY = os.getenv("FIRECRAWL_API_KEY")
 if not API_KEY:
     raise EnvironmentError("FIRECRAWL_API_KEY not found")
 APP = FirecrawlApp(api_key=API_KEY)
+
+# Global rate limit state shared across threads
+RATE_LIMIT_LOCK = threading.Lock()
+NEXT_ALLOWED_TIME = 0.0
 
 def parse_metadata(meta: dict) -> str:
     """Return the best item name from metadata."""
@@ -31,9 +36,14 @@ def parse_image_url(meta: dict) -> str | None:
 
 def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
     """Call Firecrawl to fetch page metadata with retry and log how long it took."""
+    global NEXT_ALLOWED_TIME
     last_error = None
     for attempt in range(retries + 1):
+        RATE_LIMIT_LOCK.acquire()
         try:
+            delay = NEXT_ALLOWED_TIME - time.time()
+            if delay > 0:
+                time.sleep(delay)
             start = time.perf_counter()
             resp = APP.scrape_url(
                 url=url,
@@ -46,14 +56,18 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
             meta = resp.metadata
             if "error" in meta:
                 raise RuntimeError(meta["error"])
+            RATE_LIMIT_LOCK.release()
             return meta
         except Exception as e:
             last_error = e
-            # Handle rate limit errors (HTTP 429)
             if isinstance(e, requests.exceptions.HTTPError) and getattr(e.response, "status_code", None) == 429:
                 wait = min(2 ** attempt, 60)
                 print(f"Firecrawl rate limit hit. Sleeping for {wait} seconds")
+                NEXT_ALLOWED_TIME = time.time() + wait
+                RATE_LIMIT_LOCK.release()
                 time.sleep(wait)
+            else:
+                RATE_LIMIT_LOCK.release()
             if attempt < retries:
                 print(f"Firecrawl error: {e}. Retrying ({attempt + 1}/{retries})...")
             else:
