@@ -2,6 +2,7 @@
 
 import os
 import time
+import re
 from dotenv import load_dotenv
 from firecrawl import FirecrawlApp
 import requests
@@ -29,7 +30,7 @@ def parse_image_url(meta: dict) -> str | None:
             return v
     return None
 
-def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
+def fetch_metadata(url: str, timeout: int = 20000, retries: int = 4) -> dict:
     """Call Firecrawl to fetch page metadata with retry and log how long it took."""
     last_error = None
     for attempt in range(retries + 1):
@@ -51,7 +52,17 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
             last_error = e
             # Handle rate limit errors (HTTP 429)
             if isinstance(e, requests.exceptions.HTTPError) and getattr(e.response, "status_code", None) == 429:
-                wait = min(2 ** attempt, 60)
+                retry_after = None
+                if getattr(e, "response", None) is not None:
+                    val = e.response.headers.get("Retry-After")
+                    if val and str(val).isdigit():
+                        retry_after = int(val)
+                if retry_after is None:
+                    m = re.search(r"retry after (\d+)s", str(e), re.I)
+                    if m:
+                        retry_after = int(m.group(1))
+                wait = max(retry_after or 0, 2 ** attempt)
+                wait = min(wait, 60)
                 print(f"Firecrawl rate limit hit. Sleeping for {wait} seconds")
                 time.sleep(wait)
             if attempt < retries:

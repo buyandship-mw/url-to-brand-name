@@ -43,6 +43,6 @@ Again, `--start` and `--end` let you select a subset of rows.
 ## Notes
 
 Both API helper functions include retry logic and will back off when a `429` rate limit
-response is received. They now retry up to **three** times by default. Adjust the
+response is received. They now retry up to **four** times by default. Adjust the
 `retries` parameter in `modules/extraction.py` and `modules/llm_client.py` if you need
 more attempts.
