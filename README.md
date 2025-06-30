@@ -24,21 +24,25 @@ pip install -r requirements.txt
 
 1. **Extract item names**
 
-```bash
-python extract_names.py --start 1 --end 100
+```python
+import csv, extract_names
+
+rows = list(csv.DictReader(open("data/input.csv")))
+extract_names.batch_process(rows, max_workers=2)
 ```
 
 This reads `data/input.csv`, fetches metadata with Firecrawl and writes the results to `data/output/item_names.csv`.
-Use `--start` and `--end` to limit which rows are processed (both inclusive).
 
 2. **Extract brand names**
 
-```bash
-python extract_brands.py --start 1 --end 100
+```python
+import csv, extract_brands
+
+rows = list(csv.DictReader(open("data/output/item_names.csv")))
+extract_brands.batch_process(rows)
 ```
 
 This reads the item names file produced above and writes `data/output/brands.csv`.
-Again, `--start` and `--end` let you select a subset of rows.
 
 ## Notes
 
