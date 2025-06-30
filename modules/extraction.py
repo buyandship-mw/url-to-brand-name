@@ -77,7 +77,7 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
                     continue
             else:
                 RATE_LIMIT_LOCK.release()
-            print(f"Firecrawl failed after {retries} attempts: {e}")
+            print(f"Firecrawl failed: {e}")
             break
         except Exception as e:
             last_error = e
