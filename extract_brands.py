@@ -12,6 +12,7 @@ def process_row(row: dict) -> dict:
     month = row.get("month", "")
     url = row.get("url", "")
     item_count = row.get("item_count", "")
+    image_url = row.get("image_url", "")
 
     item_name = row.get("item_name", "").strip()
     input_text = item_name if item_name else url
@@ -31,6 +32,7 @@ def process_row(row: dict) -> dict:
         "month": month,
         "url": url,
         "item_count": item_count,
+        "image_url": image_url,
         "brand": brand,
         "brand_error": brand_error,
     }
@@ -38,7 +40,7 @@ def process_row(row: dict) -> dict:
 def worker(worker_id: int, rows: list[dict]):
     """Process a chunk of rows and write results to a worker specific file."""
     outfile = f"data/output/brands_{worker_id}.csv"
-    fieldnames = ["month", "url", "item_count", "brand", "brand_error"]
+    fieldnames = ["month", "url", "item_count", "image_url", "brand", "brand_error"]
     with open(outfile, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -73,7 +75,7 @@ def main():
         for future in futures:
             future.result()
 
-    fieldnames = ["month", "url", "item_count", "brand", "brand_error"]
+    fieldnames = ["month", "url", "item_count", "image_url", "brand", "brand_error"]
     with open("data/output/brands.csv", "a", newline="") as f_out:
         writer = csv.DictWriter(f_out, fieldnames=fieldnames)
         writer.writeheader()
