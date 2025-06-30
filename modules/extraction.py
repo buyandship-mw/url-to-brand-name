@@ -39,7 +39,7 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
                 url=url,
                 only_main_content=False,
                 timeout=timeout,
-                proxy="auto",
+                proxy="basic",
             )
             duration = time.perf_counter() - start
             print(f"Firecrawl request for {url} took {duration:.2f} seconds")
