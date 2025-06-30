@@ -65,7 +65,7 @@ def main():
     rows = all_rows[start:end]
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
-    num_workers = int(os.getenv("OPENAI_MAX_WORKERS", "2"))
+    num_workers = os.cpu_count() or 1
     chunks = [rows[i::num_workers] for i in range(num_workers)]
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
