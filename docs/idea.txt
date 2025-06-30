@@ -1,0 +1,14 @@
+A two prompt approach might be sufficient to deal with a lot of these cases.
+
+Prompt 1: Evaluate if brand/IP can be extracted straight out of URL. (use gpt-4.1)
+
+Is the brand/IP name ambiguous from this URL alone? Respond Yes or No.
+URL: <URL>
+
+YES -> Use current system (Firecrawl to scrape item name, gpt-4.1-mini to extract brand/IP from item name).
+
+NO -> Prompt 2: Extract brand/IP right out of URL (use gpt-4.1)
+Extract the best name to represent the brand/IP of this product.
+"<URL>"
+
+Respond in JSON: {"name": <value>} or {"error": "no brand"}
