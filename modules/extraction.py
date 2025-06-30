@@ -13,7 +13,17 @@ if not API_KEY:
 APP = FirecrawlApp(api_key=API_KEY)
 
 def parse_metadata(meta: dict) -> str:
+    """Return the best item name from metadata."""
     for key in ["og:title", "twitter:title", "title", "ogTitle", "name"]:
+        v = meta.get(key)
+        if isinstance(v, str) and v.strip():
+            return v
+    return None
+
+
+def parse_image_url(meta: dict) -> str | None:
+    """Return an image URL from metadata if available."""
+    for key in ["og:image", "ogImage", "twitter:image:src", "image"]:
         v = meta.get(key)
         if isinstance(v, str) and v.strip():
             return v
@@ -46,11 +56,19 @@ def fetch_metadata(url: str, timeout: int = 15000, retries: int = 0) -> dict:
                 print(f"Firecrawl failed after {retries} attempts: {e}")
     raise RuntimeError(f"Firecrawl API error: {last_error}")
 
-def extract_item_name(url: str) -> str:
+def extract_item_data(url: str) -> tuple[str, str | None]:
+    """Return item name and image URL for a given page."""
     meta = fetch_metadata(url)
     if "error" in meta:
         raise RuntimeError(meta["error"])
     name = parse_metadata(meta)
     if not name:
         raise ValueError("No valid item name found in metadata")
+    image_url = parse_image_url(meta)
+    return name, image_url
+
+
+def extract_item_name(url: str) -> str:
+    """Backward compatible wrapper that only returns the item name."""
+    name, _ = extract_item_data(url)
     return name
