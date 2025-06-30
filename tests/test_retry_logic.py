@@ -18,27 +18,31 @@ import modules.llm_client as llm_client
 
 def test_fetch_metadata_attempts_once(monkeypatch):
     calls = []
+
     def fake_scrape_url(*args, **kwargs):
         calls.append(True)
         raise Exception("fail")
+
     monkeypatch.setattr(extraction.APP, "scrape_url", fake_scrape_url)
     with pytest.raises(RuntimeError):
-        extraction.fetch_metadata("http://example.com", retries=0)
+        extraction.fetch_metadata("http://example.com", retries=2)
     assert len(calls) == 1
 
 
 def test_prompt_model_attempts_once(monkeypatch):
     calls = []
+
     def fake_create(*args, **kwargs):
         calls.append(True)
         raise Exception("fail")
+
     monkeypatch.setattr(llm_client._client.responses, "create", fake_create)
     with pytest.raises(RuntimeError):
-        llm_client.prompt_model("hi", retries=0)
+        llm_client.prompt_model("hi", retries=2)
     assert len(calls) == 1
 
 
-def test_fetch_metadata_retries_on_api_error(monkeypatch):
+def test_fetch_metadata_does_not_retry_on_api_error(monkeypatch):
     class Resp:
         def __init__(self):
             self.metadata = {"error": "bad"}
@@ -52,7 +56,30 @@ def test_fetch_metadata_retries_on_api_error(monkeypatch):
     monkeypatch.setattr(extraction.APP, "scrape_url", fake_scrape_url)
     with pytest.raises(RuntimeError):
         extraction.fetch_metadata("http://example.com")
-    assert len(calls) == 3
+    assert len(calls) == 1
+
+
+def test_prompt_model_retries_on_rate_limit(monkeypatch):
+    class FakeRateLimitError(Exception):
+        pass
+
+    monkeypatch.setattr(llm_client, "RateLimitError", FakeRateLimitError)
+
+    calls = []
+
+    def fake_create(*args, **kwargs):
+        calls.append(True)
+        raise FakeRateLimitError("429")
+
+    sleeps = []
+    monkeypatch.setattr(llm_client._client.responses, "create", fake_create)
+    monkeypatch.setattr(llm_client.time, "sleep", lambda s: sleeps.append(s))
+
+    with pytest.raises(RuntimeError):
+        llm_client.prompt_model("hi", retries=1)
+
+    assert len(calls) == 2
+    assert sleeps
 
 
 def test_fetch_metadata_parses_retry_after_message(monkeypatch):

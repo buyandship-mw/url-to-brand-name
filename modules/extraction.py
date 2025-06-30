@@ -18,6 +18,7 @@ APP = FirecrawlApp(api_key=API_KEY)
 RATE_LIMIT_LOCK = threading.Lock()
 NEXT_ALLOWED_TIME = 0.0
 
+
 def parse_metadata(meta: dict) -> str:
     """Return the best item name from metadata."""
     for key in ["og:title", "twitter:title", "title", "ogTitle", "name"]:
@@ -34,6 +35,7 @@ def parse_image_url(meta: dict) -> str | None:
         if isinstance(v, str) and v.strip():
             return v
     return None
+
 
 def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
     """Call Firecrawl to fetch page metadata with retry and log how long it took."""
@@ -59,9 +61,9 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
                 raise RuntimeError(meta["error"])
             RATE_LIMIT_LOCK.release()
             return meta
-        except Exception as e:
+        except requests.exceptions.HTTPError as e:
             last_error = e
-            if isinstance(e, requests.exceptions.HTTPError) and getattr(e.response, "status_code", None) == 429:
+            if getattr(e.response, "status_code", None) == 429:
                 match = re.search(r"retry after (\d+)s", str(e), re.I)
                 if match:
                     wait = int(match.group(1))
@@ -71,13 +73,19 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
                 NEXT_ALLOWED_TIME = time.time() + wait
                 RATE_LIMIT_LOCK.release()
                 time.sleep(wait)
+                if attempt < retries:
+                    continue
             else:
                 RATE_LIMIT_LOCK.release()
-            if attempt < retries:
-                print(f"Firecrawl error: {e}. Retrying ({attempt + 1}/{retries})...")
-            else:
-                print(f"Firecrawl failed after {retries} attempts: {e}")
+            print(f"Firecrawl failed after {retries} attempts: {e}")
+            break
+        except Exception as e:
+            last_error = e
+            RATE_LIMIT_LOCK.release()
+            print(f"Firecrawl failed: {e}")
+            break
     raise RuntimeError(f"Firecrawl API error: {last_error}")
+
 
 def extract_item_data(url: str) -> tuple[str, str | None]:
     """Return item name and image URL for a given page."""

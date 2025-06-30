@@ -46,7 +46,7 @@ This reads the item names file produced above and writes `data/output/brands.csv
 
 ## Notes
 
-Both API helper functions include retry logic and will back off when a `429` rate limit
-response is received. The metadata extraction helper now retries up to **two** times by
-default. Adjust the `retries` parameter in `modules/extraction.py` and
+Both API helper functions include retry logic **only** when a `429` rate limit
+response is received. The metadata extraction helper still retries up to **two**
+times by default. Adjust the `retries` parameter in `modules/extraction.py` and
 `modules/llm_client.py` if you need more attempts.
