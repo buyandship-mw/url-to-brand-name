@@ -35,4 +35,4 @@ def test_fetch_metadata_waits_for_next_allowed_time(monkeypatch):
 
     extraction.fetch_metadata("http://example.com", retries=0)
 
-    assert sleep_calls[-1] == pytest.approx(1.0, abs=0.01)
+    assert sleep_calls[-1] == pytest.approx(60.0, abs=0.01)

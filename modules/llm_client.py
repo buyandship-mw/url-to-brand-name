@@ -12,6 +12,7 @@ _client = OpenAI(
     default_query={"api-version": "preview"},
 )
 
+
 def prompt_model(prompt: str, timeout: int = 3, retries: int = 3) -> str:
     """Send a prompt to OpenAI with retry logic and report the request duration."""
     last_error = None
@@ -26,14 +27,16 @@ def prompt_model(prompt: str, timeout: int = 3, retries: int = 3) -> str:
             duration = time.perf_counter() - start
             print(f"OpenAI request took {duration:.2f} seconds")
             return resp.output[0].content[0].text
+        except RateLimitError as e:
+            last_error = e
+            wait = min(2**attempt, 60)
+            print(f"OpenAI rate limit hit. Sleeping for {wait} seconds")
+            time.sleep(wait)
+            if attempt < retries:
+                continue
+            print(f"OpenAI failed after {retries} attempts: {e}")
         except Exception as e:
             last_error = e
-            if isinstance(e, RateLimitError):
-                wait = min(2 ** attempt, 60)
-                print(f"OpenAI rate limit hit. Sleeping for {wait} seconds")
-                time.sleep(wait)
-            if attempt < retries:
-                print(f"OpenAI error: {e}. Retrying ({attempt + 1}/{retries})...")
-            else:
-                print(f"OpenAI failed after {retries} attempts: {e}")
+            print(f"OpenAI failed: {e}")
+            break
     raise RuntimeError(f"OpenAI API error: {last_error}")
