@@ -43,7 +43,10 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
             )
             duration = time.perf_counter() - start
             print(f"Firecrawl request for {url} took {duration:.2f} seconds")
-            return resp.metadata
+            meta = resp.metadata
+            if "error" in meta:
+                raise RuntimeError(meta["error"])
+            return meta
         except Exception as e:
             last_error = e
             # Handle rate limit errors (HTTP 429)
@@ -60,8 +63,6 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
 def extract_item_data(url: str) -> tuple[str, str | None]:
     """Return item name and image URL for a given page."""
     meta = fetch_metadata(url)
-    if "error" in meta:
-        raise RuntimeError(f"Firecrawl API error: {meta["error"]}")
     name = parse_metadata(meta)
     if not name:
         raise ValueError("No valid item name found in metadata")
