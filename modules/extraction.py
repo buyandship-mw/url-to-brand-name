@@ -18,6 +18,30 @@ def parse_metadata(meta: dict) -> str:
             return v
     return None
 
+
+def get_first(meta: dict, keys: list[str]):
+    """Return the first non-empty value for the given keys."""
+    for key in keys:
+        v = meta.get(key)
+        if isinstance(v, str) and v.strip():
+            return v
+    return None
+
+
+def strip_query(url: str | None) -> str | None:
+    """Remove the query string from a URL."""
+    if not url:
+        return url
+    return url.split("?", 1)[0]
+
+
+def parse_image_url(meta: dict) -> str | None:
+    """Extract the best image URL from page metadata."""
+    url = get_first(meta, ["og:image", "ogImage", "twitter:image:src", "image"])
+    if url:
+        return strip_query(url)
+    return None
+
 def fetch_metadata(url: str, timeout: int = 10000, retries: int = 0) -> dict:
     """Call Firecrawl to fetch page metadata with retry and log how long it took."""
     last_error = None
@@ -40,11 +64,13 @@ def fetch_metadata(url: str, timeout: int = 10000, retries: int = 0) -> dict:
                 print(f"Firecrawl failed after {retries} attempts: {e}")
     raise RuntimeError(f"Firecrawl API error: {last_error}")
 
-def extract_item_name(url: str) -> str:
+def extract_item_name(url: str) -> tuple[str, str | None]:
+    """Return the item name and representative image URL for the given page."""
     meta = fetch_metadata(url)
     if "error" in meta:
         raise RuntimeError(meta["error"])
     name = parse_metadata(meta)
     if not name:
         raise ValueError("No valid item name found in metadata")
-    return name
+    image_url = parse_image_url(meta)
+    return name, image_url

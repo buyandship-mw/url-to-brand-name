@@ -5,17 +5,18 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from modules.extraction import extract_item_name
 
-FIELDNAMES = ["month", "url", "item_count", "item_name", "error"]
+FIELDNAMES = ["month", "url", "item_count", "image_url", "item_name", "error"]
 
 def process_row(row):
     month = row.get("month", "")
     url = row.get("item_url", "")
     item_count = row.get("item_count", "")
     item_name = ""
+    image_url = ""
     error = ""
     print(f"Processing URL: {url}")
     try:
-        item_name = extract_item_name(url)
+        item_name, image_url = extract_item_name(url)
     except Exception as e:
         error = str(e)
 
@@ -23,6 +24,7 @@ def process_row(row):
         "month": month,
         "url": url,
         "item_count": item_count,
+        "image_url": image_url,
         "item_name": item_name,
         "error": error,
     }
