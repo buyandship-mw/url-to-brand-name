@@ -35,3 +35,20 @@ def test_prompt_model_attempts_once(monkeypatch):
     with pytest.raises(RuntimeError):
         llm_client.prompt_model("hi", retries=0)
     assert len(calls) == 1
+
+
+def test_fetch_metadata_retries_on_api_error(monkeypatch):
+    class Resp:
+        def __init__(self):
+            self.metadata = {"error": "bad"}
+
+    calls = []
+
+    def fake_scrape_url(*args, **kwargs):
+        calls.append(True)
+        return Resp()
+
+    monkeypatch.setattr(extraction.APP, "scrape_url", fake_scrape_url)
+    with pytest.raises(RuntimeError):
+        extraction.fetch_metadata("http://example.com", retries=2)
+    assert len(calls) == 3
