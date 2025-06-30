@@ -61,7 +61,7 @@ def extract_item_data(url: str) -> tuple[str, str | None]:
     """Return item name and image URL for a given page."""
     meta = fetch_metadata(url)
     if "error" in meta:
-        raise RuntimeError(meta["error"])
+        raise RuntimeError(f"Firecrawl API error: {meta["error"]}")
     name = parse_metadata(meta)
     if not name:
         raise ValueError("No valid item name found in metadata")
