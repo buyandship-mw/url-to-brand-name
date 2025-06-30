@@ -2,6 +2,7 @@ import csv
 import glob
 import os
 import threading
+import argparse
 from concurrent.futures import ThreadPoolExecutor
 from modules.extraction import extract_item_name
 
@@ -39,12 +40,22 @@ def process_row(row):
     return result
 
 def main():
+    parser = argparse.ArgumentParser(description="Extract item names from URLs")
+    parser.add_argument("--start", type=int, default=1, help="First row to process (1-indexed)")
+    parser.add_argument("--end", type=int, default=None, help="Last row to process (inclusive)")
+    args = parser.parse_args()
+
     try:
         with open("data/input.csv", newline="") as f:
-            rows = list(csv.DictReader(f))
+            all_rows = list(csv.DictReader(f))
     except FileNotFoundError:
         print("data/input.csv not found")
         return
+
+    start = max(args.start - 1, 0)
+    end = args.end if args.end is not None else len(all_rows)
+    rows = all_rows[start:end]
+    print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
     max_workers = 2 # limited to 2 concurrent due to Firecrawl API free plan rate limit
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

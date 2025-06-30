@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import argparse
 from concurrent.futures import ThreadPoolExecutor
 from modules.prompting import build_prompt
 from modules.llm_client import prompt_model
@@ -47,12 +48,22 @@ def worker(worker_id: int, rows: list[dict]):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Extract brand names")
+    parser.add_argument("--start", type=int, default=1, help="First row to process (1-indexed)")
+    parser.add_argument("--end", type=int, default=None, help="Last row to process (inclusive)")
+    args = parser.parse_args()
+
     try:
         with open("data/output/item_names.csv", newline="") as f:
-            rows = list(csv.DictReader(f))
+            all_rows = list(csv.DictReader(f))
     except FileNotFoundError:
         print("item_names.csv not found")
         return
+
+    start = max(args.start - 1, 0)
+    end = args.end if args.end is not None else len(all_rows)
+    rows = all_rows[start:end]
+    print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
     num_workers = int(os.getenv("OPENAI_MAX_WORKERS", "2"))
     chunks = [rows[i::num_workers] for i in range(num_workers)]
