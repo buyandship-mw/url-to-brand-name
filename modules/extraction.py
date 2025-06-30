@@ -74,3 +74,43 @@ def extract_item_name(url: str) -> str:
     """Backward compatible wrapper that only returns the item name."""
     name, _ = extract_item_data(url)
     return name
+
+
+def _thread_map(fn, items, max_workers: int = 2):
+    """Run tasks in a thread pool and return all results."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(fn, item) for item in items]
+        for fut in futures:
+            results.append(fut.result())
+    return results
+
+
+def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
+    """Extract item names for multiple rows concurrently."""
+
+    def _worker(row: dict) -> dict:
+        month = row.get("month", "")
+        url = row.get("item_url") or row.get("url", "")
+        item_count = row.get("item_count", "")
+        item_name = ""
+        image_url = ""
+        error = ""
+        print(f"Processing URL: {url}")
+        try:
+            item_name, image_url = extract_item_data(url)
+        except Exception as e:  # noqa: BLE001
+            error = str(e)
+
+        return {
+            "month": month,
+            "url": url,
+            "item_count": item_count,
+            "image_url": image_url,
+            "item_name": item_name,
+            "error": error,
+        }
+
+    return _thread_map(_worker, rows, max_workers)

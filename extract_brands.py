@@ -2,9 +2,9 @@ import csv
 import json
 import os
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 from modules.prompting import build_prompt
 from modules.llm_client import prompt_model
+from modules.extraction import _thread_map
 
 
 def process_row(row: dict) -> dict:
@@ -37,16 +37,11 @@ def process_row(row: dict) -> dict:
         "brand_error": brand_error,
     }
 
-def worker(worker_id: int, rows: list[dict]):
-    """Process a chunk of rows and write results to a worker specific file."""
-    outfile = f"data/output/brands_{worker_id}.csv"
-    fieldnames = ["month", "url", "item_count", "image_url", "brand", "brand_error"]
-    with open(outfile, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in rows:
-            result = process_row(row)
-            writer.writerow(result)
+def batch_process(rows, max_workers: int | None = None) -> list[dict]:
+    """Process rows concurrently and return brand extraction results."""
+    if max_workers is None:
+        max_workers = os.cpu_count() or 1
+    return _thread_map(process_row, rows, max_workers)
 
 
 def main():
@@ -67,29 +62,13 @@ def main():
     rows = all_rows[start:end]
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
-    num_workers = os.cpu_count() or 1
-    chunks = [rows[i::num_workers] for i in range(num_workers)]
-
-    with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = [executor.submit(worker, i, chunk) for i, chunk in enumerate(chunks)]
-        for future in futures:
-            future.result()
+    results = batch_process(rows)
 
     fieldnames = ["month", "url", "item_count", "image_url", "brand", "brand_error"]
     with open("data/output/brands.csv", "a", newline="") as f_out:
         writer = csv.DictWriter(f_out, fieldnames=fieldnames)
         writer.writeheader()
-        for i in range(num_workers):
-            part_file = f"data/output/brands_{i}.csv"
-            if not os.path.exists(part_file):
-                continue
-            with open(part_file, newline="") as pf:
-                reader = csv.DictReader(pf)
-                writer.writerows(reader)
-            try:
-                os.remove(part_file)
-            except OSError as e:
-                print(f"Error deleting {part_file}: {e}")
+        writer.writerows(results)
 
 if __name__ == "__main__":
     main()
