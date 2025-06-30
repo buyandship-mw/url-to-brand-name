@@ -73,6 +73,10 @@ def main():
             with open(part_file, newline="") as pf:
                 reader = csv.DictReader(pf)
                 writer.writerows(reader)
+            try:
+                os.remove(part_file)
+            except OSError as e:
+                print(f"Error deleting {part_file}: {e}")
 
 if __name__ == "__main__":
     main()

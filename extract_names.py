@@ -57,6 +57,10 @@ def main():
         with open(path, newline="") as f:
             reader = csv.DictReader(f)
             results.extend(reader)
+        try:
+            os.remove(path)
+        except OSError as e:
+            print(f"Error deleting {path}: {e}")
 
     with open("data/output/item_names.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
