@@ -12,7 +12,7 @@ _client = OpenAI(
     default_query={"api-version": "preview"},
 )
 
-def prompt_model(prompt: str, timeout: int = 3, retries: int = 0) -> str:
+def prompt_model(prompt: str, timeout: int = 3, retries: int = 3) -> str:
     """Send a prompt to OpenAI with retry logic and report the request duration."""
     last_error = None
     for attempt in range(retries + 1):

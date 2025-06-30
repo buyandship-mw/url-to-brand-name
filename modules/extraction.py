@@ -29,7 +29,7 @@ def parse_image_url(meta: dict) -> str | None:
             return v
     return None
 
-def fetch_metadata(url: str, timeout: int = 30000, retries: int = 0) -> dict:
+def fetch_metadata(url: str, timeout: int = 30000, retries: int = 3) -> dict:
     """Call Firecrawl to fetch page metadata with retry and log how long it took."""
     last_error = None
     for attempt in range(retries + 1):
