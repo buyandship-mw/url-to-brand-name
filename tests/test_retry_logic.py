@@ -1,6 +1,7 @@
 import os
 import sys
 import pytest
+import requests
 
 # Ensure repository root is on path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -24,6 +25,29 @@ def test_fetch_metadata_attempts_once(monkeypatch):
     with pytest.raises(RuntimeError):
         extraction.fetch_metadata("http://example.com", retries=0)
     assert len(calls) == 1
+
+
+def test_retry_after_seconds_parsed(monkeypatch):
+    resp = requests.Response()
+    resp.status_code = 429
+    message = (
+        "Unexpected error during scrape URL: Status code 429. Rate limit exceeded. "
+        "please retry after 7s, resets at Mon Jun 30 2025 08:48:45 GMT+0000 (Coordinated Universal Time)"
+    )
+    err = requests.exceptions.HTTPError(message, response=resp)
+
+    sleeps = []
+
+    def fake_scrape_url(*args, **kwargs):
+        raise err
+
+    monkeypatch.setattr(extraction.APP, "scrape_url", fake_scrape_url)
+    monkeypatch.setattr(extraction.time, "sleep", lambda s: sleeps.append(s))
+
+    with pytest.raises(RuntimeError):
+        extraction.fetch_metadata("http://example.com", retries=0)
+
+    assert sleeps == [7]
 
 
 def test_prompt_model_attempts_once(monkeypatch):

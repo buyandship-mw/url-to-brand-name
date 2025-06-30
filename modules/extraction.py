@@ -5,12 +5,20 @@ import time
 from dotenv import load_dotenv
 from firecrawl import FirecrawlApp
 import requests
+import re
 
 load_dotenv()
 API_KEY = os.getenv("FIRECRAWL_API_KEY")
 if not API_KEY:
     raise EnvironmentError("FIRECRAWL_API_KEY not found")
 APP = FirecrawlApp(api_key=API_KEY)
+
+def _parse_retry_after_seconds(message: str) -> int | None:
+    """Return the suggested wait time from a Firecrawl rate limit message."""
+    match = re.search(r"retry after (\d+)s", message)
+    if match:
+        return int(match.group(1))
+    return None
 
 def parse_metadata(meta: dict) -> str:
     """Return the best item name from metadata."""
@@ -47,7 +55,10 @@ def fetch_metadata(url: str, timeout: int = 30000, retries: int = 3) -> dict:
             last_error = e
             # Handle rate limit errors (HTTP 429)
             if isinstance(e, requests.exceptions.HTTPError) and getattr(e.response, "status_code", None) == 429:
-                wait = min(2 ** attempt, 60)
+                message = str(e)
+                wait = _parse_retry_after_seconds(message)
+                if wait is None:
+                    wait = min(2 ** attempt, 60)
                 print(f"Firecrawl rate limit hit. Sleeping for {wait} seconds")
                 time.sleep(wait)
             if attempt < retries:
