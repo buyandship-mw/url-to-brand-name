@@ -1,6 +1,7 @@
 import os
 import sys
 import pytest
+import requests
 
 # Ensure repository root is on path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -50,5 +51,24 @@ def test_fetch_metadata_retries_on_api_error(monkeypatch):
 
     monkeypatch.setattr(extraction.APP, "scrape_url", fake_scrape_url)
     with pytest.raises(RuntimeError):
-        extraction.fetch_metadata("http://example.com", retries=2)
+        extraction.fetch_metadata("http://example.com")
     assert len(calls) == 3
+
+
+def test_fetch_metadata_parses_retry_after_message(monkeypatch):
+    class FakeHTTPError(requests.exceptions.HTTPError):
+        def __init__(self, message):
+            super().__init__(message)
+            self.response = type("R", (), {"status_code": 429})()
+
+    def fake_scrape_url(*args, **kwargs):
+        raise FakeHTTPError("Too many requests, retry after 7s")
+
+    sleeps = []
+    monkeypatch.setattr(extraction.APP, "scrape_url", fake_scrape_url)
+    monkeypatch.setattr(extraction.time, "sleep", lambda s: sleeps.append(s))
+
+    with pytest.raises(RuntimeError):
+        extraction.fetch_metadata("http://example.com", retries=0)
+
+    assert sleeps == [7]
