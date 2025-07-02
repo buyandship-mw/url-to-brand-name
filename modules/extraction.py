@@ -3,6 +3,8 @@
 import os
 import time
 import re
+import csv
+import glob
 import threading
 from dotenv import load_dotenv
 from firecrawl import FirecrawlApp
@@ -17,6 +19,53 @@ APP = FirecrawlApp(api_key=API_KEY)
 # Global rate limit state shared across threads
 RATE_LIMIT_LOCK = threading.Lock()
 NEXT_ALLOWED_TIME = 0.0
+
+# Fieldnames used when writing per-thread CSVs for item extraction
+ITEM_FIELDNAMES = [
+    "month",
+    "url",
+    "item_count",
+    "image_url",
+    "item_name",
+    "error",
+    "used_fallback",
+]
+
+
+def _append_thread_csv(prefix: str, fieldnames: list[str], row: dict) -> None:
+    """Append a row to a thread specific CSV under the given prefix."""
+    os.makedirs(os.path.dirname(prefix), exist_ok=True)
+    path = f"{prefix}_{threading.get_ident()}.csv"
+    write_header = not os.path.exists(path)
+    with open(path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def merge_thread_csvs(prefix: str, dest_path: str, fieldnames: list[str]) -> None:
+    """Merge per-thread CSVs created with ``prefix`` into ``dest_path``.
+
+    The destination file is opened in append mode and a header is written if it
+    does not already exist. After copying rows, the thread-specific files are
+    deleted.
+    """
+    files = sorted(glob.glob(f"{prefix}_*.csv"))
+    if not files:
+        return
+
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    write_header = not os.path.exists(dest_path)
+    with open(dest_path, "a", newline="") as f_out:
+        writer = csv.DictWriter(f_out, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        for path in files:
+            with open(path, newline="") as f_in:
+                for row in csv.DictReader(f_in):
+                    writer.writerow(row)
+            os.remove(path)
 
 
 def parse_metadata(meta: dict) -> str:
@@ -117,8 +166,14 @@ def _thread_map(fn, items, max_workers: int = 2):
     return results
 
 
-def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
-    """Extract item names for multiple rows concurrently."""
+def batch_extract(
+    rows: list[dict], max_workers: int = 2, csv_prefix: str | None = None
+) -> list[dict]:
+    """Extract item names for multiple rows concurrently.
+
+    If ``csv_prefix`` is provided, each worker thread will append its results to
+    a thread-specific CSV using this prefix.
+    """
 
     def _worker(row: dict) -> dict:
         month = row.get("month", "")
@@ -137,7 +192,7 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
             item_name = original_item_name
             used_fallback = bool(item_name)
 
-        return {
+        result = {
             "month": month,
             "url": url,
             "item_count": item_count,
@@ -146,5 +201,10 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
             "error": error,
             "used_fallback": used_fallback,
         }
+
+        if csv_prefix:
+            _append_thread_csv(csv_prefix, ITEM_FIELDNAMES, result)
+
+        return result
 
     return _thread_map(_worker, rows, max_workers)

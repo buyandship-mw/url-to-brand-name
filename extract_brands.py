@@ -1,63 +1,16 @@
-import csv
-import json
-import os
 import argparse
-from modules.prompting import build_prompt
-from modules.llm_client import prompt_model
-from modules.extraction import _thread_map
+import csv
+import os
+
+from modules.brand_extraction import (
+    BRAND_FIELDNAMES,
+    batch_process,
+    process_row,
+)
+from modules.llm_client import prompt_model  # re-exported for tests
 
 
-def process_row(row: dict) -> dict:
-    """Process a single CSV row and return the brand extraction result."""
-    month = row.get("month", "")
-    url = row.get("url", "")
-    item_count = row.get("item_count", "")
-    image_url = row.get("image_url", "")
-
-    item_name = row.get("item_name", "").strip()
-    error = row.get("error", "").strip()
-    if error:
-        return {
-            "month": month,
-            "url": url,
-            "item_count": item_count,
-            "item_name": item_name,
-            "image_url": image_url,
-            "brand": "",
-            "brand_error": error,
-        }
-
-    input_text = item_name if item_name else url
-    prompt = build_prompt(input_text)
-    print(prompt)
-
-    brand = ""
-    brand_error = ""
-    try:
-        raw = prompt_model(prompt)
-        data = json.loads(raw)
-        brand = data.get("name", "")
-    except Exception as e:
-        brand_error = str(e)
-
-    return {
-        "month": month,
-        "url": url,
-        "item_count": item_count,
-        "item_name": item_name,
-        "image_url": image_url,
-        "brand": brand,
-        "brand_error": brand_error,
-    }
-
-def batch_process(rows, max_workers: int | None = None) -> list[dict]:
-    """Process rows concurrently and return brand extraction results."""
-    if max_workers is None:
-        max_workers = os.cpu_count() or 1
-    return _thread_map(process_row, rows, max_workers)
-
-
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Extract brand names")
     parser.add_argument("--start", type=int, default=1, help="First row to process (1-indexed)")
     parser.add_argument("--end", type=int, default=None, help="Last row to process (inclusive)")
@@ -75,21 +28,18 @@ def main():
     rows = all_rows[start:end]
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
-    results = batch_process(rows)
+    csv_prefix = "data/output/brands"
+    output_path = "data/output/brands.csv"
+    results = batch_process(rows, csv_prefix=csv_prefix, merge_path=output_path)
 
-    fieldnames = [
-        "month",
-        "url",
-        "item_count",
-        "item_name",
-        "image_url",
-        "brand",
-        "brand_error",
-    ]
-    with open("data/output/brands.csv", "a", newline="") as f_out:
-        writer = csv.DictWriter(f_out, fieldnames=fieldnames)
-        writer.writeheader()
+    os.makedirs("data/output", exist_ok=True)
+    write_header = not os.path.exists(output_path) or os.stat(output_path).st_size == 0
+    with open(output_path, "a", newline="") as f_out:
+        writer = csv.DictWriter(f_out, fieldnames=BRAND_FIELDNAMES)
+        if write_header:
+            writer.writeheader()
         writer.writerows(results)
+
 
 if __name__ == "__main__":
     main()

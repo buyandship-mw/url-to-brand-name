@@ -1,6 +1,7 @@
 import csv
 import argparse
-from modules.extraction import batch_extract
+import os
+from modules.extraction import batch_extract, merge_thread_csvs
 
 FIELDNAMES = [
     "month",
@@ -12,9 +13,9 @@ FIELDNAMES = [
     "used_fallback",
 ]
 
-def batch_process(rows, max_workers: int = 2):
+def batch_process(rows, max_workers: int = 2, csv_prefix: str | None = None):
     """Return processed rows with extracted item names."""
-    return batch_extract(rows, max_workers=max_workers)
+    return batch_extract(rows, max_workers=max_workers, csv_prefix=csv_prefix)
 
 def main():
     parser = argparse.ArgumentParser(description="Extract item names from URLs")
@@ -34,11 +35,18 @@ def main():
     rows = all_rows[start:end]
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
-    results = batch_process(rows, max_workers=2)
+    csv_prefix = "data/output/item_names"
+    output_path = "data/output/item_names.csv"
+    results = batch_process(rows, max_workers=2, csv_prefix=csv_prefix)
 
-    with open("data/output/item_names.csv", "a", newline="") as f:
+    merge_thread_csvs(csv_prefix, output_path, FIELDNAMES)
+
+    os.makedirs("data/output", exist_ok=True)
+    write_header = not os.path.exists(output_path) or os.stat(output_path).st_size == 0
+    with open(output_path, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writeheader()
+        if write_header:
+            writer.writeheader()
         writer.writerows(results)
 
 if __name__ == "__main__":
