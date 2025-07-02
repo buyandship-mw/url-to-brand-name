@@ -13,8 +13,7 @@ def cleanup_brand_name(name: str) -> str:
         return ""
     cleaned = name.replace("_", " ").replace("-", " ")
     cleaned = " ".join(cleaned.split())
-    return cleaned.title()
-
+    return cleaned.upper()
 
 def process_row(row: dict) -> dict:
     """Process a single CSV row and return the brand extraction result."""
@@ -22,21 +21,10 @@ def process_row(row: dict) -> dict:
     url = row.get("url", "")
     item_count = row.get("item_count", "")
     image_url = row.get("image_url", "")
+    fallback = row.get("used_fallback", "False").lower() == "true"
 
     item_name = row.get("item_name", "").strip()
-    error = row.get("error", "").strip()
-    if error:
-        return {
-            "month": month,
-            "url": url,
-            "item_count": item_count,
-            "item_name": item_name,
-            "image_url": image_url,
-            "brand": "",
-            "brand_error": error,
-        }
-
-    input_text = item_name if item_name else url
+    input_text = url if fallback else item_name
     prompt = build_prompt(input_text)
     print(prompt)
 
