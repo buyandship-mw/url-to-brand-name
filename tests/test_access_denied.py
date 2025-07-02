@@ -10,23 +10,33 @@ os.environ.setdefault("AZURE_OPENAI_ENDPOINT", "https://example.com/")
 os.environ.setdefault("AZURE_OPENAI_DEPLOYMENT", "test")
 
 import extract_brands as eb
+import modules.extraction as extraction
 
 
-def test_process_row_handles_access_denied(monkeypatch):
+def test_access_denied_error_propagates(monkeypatch):
     row = {
         "month": "2025-05-01",
         "url": "http://example.com",
         "item_count": "18",
-        "image_url": "",
-        "item_name": "Access Denied",
     }
+
+    monkeypatch.setattr(
+        extraction,
+        "fetch_metadata",
+        lambda *args, **kwargs: {"title": "Access Denied"},
+    )
+
+    results = extraction.batch_extract([row], max_workers=1)
+    item_row = results[0]
+    assert item_row["item_name"] == ""
+    assert item_row["error"] == "Access Denied"
 
     def fail_prompt(*args, **kwargs):  # pragma: no cover - should not be called
         raise AssertionError("prompt_model should not be called")
 
     monkeypatch.setattr(eb, "prompt_model", fail_prompt)
 
-    result = eb.process_row(row)
+    brand_row = eb.process_row(item_row)
 
-    assert result["brand"] == ""
-    assert result["brand_error"] == "Access Denied"
+    assert brand_row["brand"] == ""
+    assert brand_row["brand_error"] == "Access Denied"

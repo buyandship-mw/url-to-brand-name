@@ -15,14 +15,15 @@ def process_row(row: dict) -> dict:
     image_url = row.get("image_url", "")
 
     item_name = row.get("item_name", "").strip()
-    if "access denied" in item_name.lower():
+    error = row.get("error", "").strip()
+    if error:
         return {
             "month": month,
             "url": url,
             "item_count": item_count,
             "image_url": image_url,
             "brand": "",
-            "brand_error": "Access Denied",
+            "brand_error": error,
         }
 
     input_text = item_name if item_name else url
