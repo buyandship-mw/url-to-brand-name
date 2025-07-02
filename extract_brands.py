@@ -21,6 +21,7 @@ def process_row(row: dict) -> dict:
             "month": month,
             "url": url,
             "item_count": item_count,
+            "item_name": item_name,
             "image_url": image_url,
             "brand": "",
             "brand_error": error,
@@ -43,6 +44,7 @@ def process_row(row: dict) -> dict:
         "month": month,
         "url": url,
         "item_count": item_count,
+        "item_name": item_name,
         "image_url": image_url,
         "brand": brand,
         "brand_error": brand_error,
@@ -75,7 +77,15 @@ def main():
 
     results = batch_process(rows)
 
-    fieldnames = ["month", "url", "item_count", "image_url", "brand", "brand_error"]
+    fieldnames = [
+        "month",
+        "url",
+        "item_count",
+        "item_name",
+        "image_url",
+        "brand",
+        "brand_error",
+    ]
     with open("data/output/brands.csv", "a", newline="") as f_out:
         writer = csv.DictWriter(f_out, fieldnames=fieldnames)
         writer.writeheader()

@@ -124,14 +124,18 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
         month = row.get("month", "")
         url = row.get("item_url") or row.get("url", "")
         item_count = row.get("item_count", "")
+        original_item_name = row.get("item_name", "")
         item_name = ""
         image_url = ""
         error = ""
+        used_fallback = False
         print(f"Processing URL: {url}")
         try:
             item_name, image_url = extract_item_data(url)
         except Exception as e:  # noqa: BLE001
             error = str(e)
+            item_name = original_item_name
+            used_fallback = bool(item_name)
 
         return {
             "month": month,
@@ -140,6 +144,7 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
             "image_url": image_url,
             "item_name": item_name,
             "error": error,
+            "used_fallback": used_fallback,
         }
 
     return _thread_map(_worker, rows, max_workers)
