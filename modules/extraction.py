@@ -120,7 +120,7 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
 
     def _worker(row: dict) -> dict:
         month = row.get("month", "")
-        url = row.get("item_url") or row.get("url", "")
+        url = row.get("item_url", "")
         item_count = row.get("item_count", "")
         item_name = ""
         image_url = ""
@@ -133,7 +133,7 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
 
         return {
             "month": month,
-            "url": url,
+            "item_url": url,
             "item_count": item_count,
             "image_url": image_url,
             "item_name": item_name,

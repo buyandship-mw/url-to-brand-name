@@ -2,7 +2,7 @@ import csv
 import argparse
 from modules.extraction import batch_extract
 
-FIELDNAMES = ["month", "url", "item_count", "image_url", "item_name", "error"]
+FIELDNAMES = ["month", "item_url", "item_count", "image_url", "item_name", "error"]
 
 def batch_process(rows, max_workers: int = 2):
     """Return processed rows with extracted item names."""
