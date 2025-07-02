@@ -7,6 +7,15 @@ from modules.llm_client import prompt_model
 from modules.extraction import _thread_map
 
 
+def cleanup_brand_name(name: str) -> str:
+    """Return a cleaned brand name for easier consolidation."""
+    if not name:
+        return ""
+    cleaned = name.replace("_", " ").replace("-", " ")
+    cleaned = " ".join(cleaned.split())
+    return cleaned.title()
+
+
 def process_row(row: dict) -> dict:
     """Process a single CSV row and return the brand extraction result."""
     month = row.get("month", "")
@@ -36,7 +45,7 @@ def process_row(row: dict) -> dict:
     try:
         raw = prompt_model(prompt)
         data = json.loads(raw)
-        brand = data.get("name", "")
+        brand = cleanup_brand_name(data.get("name", ""))
     except Exception as e:
         brand_error = str(e)
 
