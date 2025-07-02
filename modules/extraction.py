@@ -42,11 +42,11 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
     global NEXT_ALLOWED_TIME
     last_error = None
     for attempt in range(retries + 1):
-        RATE_LIMIT_LOCK.acquire()
-        try:
+        with RATE_LIMIT_LOCK:
             delay = NEXT_ALLOWED_TIME - time.time()
-            if delay > 0:
-                time.sleep(delay)
+        if delay > 0:
+            time.sleep(delay)
+        try:
             start = time.perf_counter()
             resp = APP.scrape_url(
                 url=url,
@@ -59,7 +59,6 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
             meta = resp.metadata
             if "error" in meta:
                 raise RuntimeError(meta["error"])
-            RATE_LIMIT_LOCK.release()
             return meta
         except requests.exceptions.HTTPError as e:
             last_error = e
@@ -70,18 +69,15 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
                 else:
                     wait = 60
                 print(f"Firecrawl rate limit hit. Sleeping for {wait} seconds")
-                NEXT_ALLOWED_TIME = time.time() + wait
-                RATE_LIMIT_LOCK.release()
+                with RATE_LIMIT_LOCK:
+                    NEXT_ALLOWED_TIME = time.time() + wait
                 time.sleep(wait)
                 if attempt < retries:
                     continue
-            else:
-                RATE_LIMIT_LOCK.release()
             print(f"Firecrawl failed: {e}")
             break
         except Exception as e:
             last_error = e
-            RATE_LIMIT_LOCK.release()
             print(f"Firecrawl failed: {e}")
             break
     raise RuntimeError(f"Firecrawl API error: {last_error}")
