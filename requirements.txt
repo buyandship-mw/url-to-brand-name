@@ -1,3 +1,4 @@
 openai
 firecrawl
 python-dotenv
+requests
