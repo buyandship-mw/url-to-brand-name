@@ -13,7 +13,7 @@ def cleanup_brand_name(name: str) -> str:
         return ""
     cleaned = name.replace("_", " ").replace("-", " ")
     cleaned = " ".join(cleaned.split())
-    return cleaned.upper()
+    return cleaned.title()
 
 def process_row(row: dict) -> dict:
     """Process a single CSV row and return the brand extraction result."""
@@ -21,9 +21,21 @@ def process_row(row: dict) -> dict:
     url = row.get("url", "")
     item_count = row.get("item_count", "")
     image_url = row.get("image_url", "")
-    fallback = row.get("used_fallback", "False").lower() == "true"
+    fallback = str(row.get("used_fallback", "False")).lower() == "true"
 
     item_name = row.get("item_name", "").strip()
+    error = row.get("error", "").strip()
+    if error:
+        return {
+            "month": month,
+            "url": url,
+            "item_count": item_count,
+            "item_name": item_name,
+            "image_url": image_url,
+            "brand": "",
+            "brand_error": error,
+        }
+
     input_text = url if fallback else item_name
     prompt = build_prompt(input_text)
     print(prompt)
@@ -47,11 +59,33 @@ def process_row(row: dict) -> dict:
         "brand_error": brand_error,
     }
 
-def batch_process(rows, max_workers: int | None = None) -> list[dict]:
+def batch_process(
+    rows,
+    max_workers: int | None = None,
+    *,
+    final_csv: str | None = None,
+    tmp_dir: str | None = None,
+) -> list[dict]:
     """Process rows concurrently and return brand extraction results."""
     if max_workers is None:
         max_workers = os.cpu_count() or 1
-    return _thread_map(process_row, rows, max_workers)
+    fieldnames = [
+        "month",
+        "url",
+        "item_count",
+        "item_name",
+        "image_url",
+        "brand",
+        "brand_error",
+    ]
+    return _thread_map(
+        process_row,
+        rows,
+        max_workers,
+        fieldnames=fieldnames,
+        final_csv=final_csv,
+        tmp_dir=tmp_dir,
+    )
 
 
 def main():
@@ -72,21 +106,11 @@ def main():
     rows = all_rows[start:end]
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
-    results = batch_process(rows)
-
-    fieldnames = [
-        "month",
-        "url",
-        "item_count",
-        "item_name",
-        "image_url",
-        "brand",
-        "brand_error",
-    ]
-    with open("data/output/brands.csv", "a", newline="") as f_out:
-        writer = csv.DictWriter(f_out, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(results)
+    batch_process(
+        rows,
+        final_csv="data/output/brands.csv",
+        tmp_dir="data/output/tmp_brands",
+    )
 
 if __name__ == "__main__":
     main()

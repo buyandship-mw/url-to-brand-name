@@ -3,6 +3,7 @@
 import os
 import time
 import re
+import csv
 import threading
 from dotenv import load_dotenv
 from firecrawl import FirecrawlApp
@@ -105,19 +106,73 @@ def extract_item_name(url: str) -> str:
     return name
 
 
-def _thread_map(fn, items, max_workers: int = 2):
-    """Run tasks in a thread pool and return all results."""
+def _append_to_csv(path: str, row: dict, fieldnames: list[str]):
+    """Append a single row to a CSV file writing headers if needed."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    write_header = not os.path.exists(path)
+    with open(path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def _thread_map(
+    fn,
+    items,
+    max_workers: int = 2,
+    *,
+    fieldnames: list[str] | None = None,
+    final_csv: str | None = None,
+    tmp_dir: str | None = None,
+):
+    """Run tasks in a thread pool with optional CSV output."""
     from concurrent.futures import ThreadPoolExecutor
 
     results = []
+    thread_files: dict[int, str] = {}
+    if final_csv:
+        tmp_dir = tmp_dir or os.path.join(os.path.dirname(final_csv), "tmp")
+        os.makedirs(tmp_dir, exist_ok=True)
+
+    def wrapper(item):
+        res = fn(item)
+        if final_csv:
+            tid = threading.get_ident()
+            path = thread_files.get(tid)
+            if not path:
+                path = os.path.join(tmp_dir, f"thread_{tid}.csv")
+                thread_files[tid] = path
+            _append_to_csv(path, res, fieldnames or list(res.keys()))
+        return res
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(fn, item) for item in items]
+        futures = [executor.submit(wrapper, item) for item in items]
         for fut in futures:
             results.append(fut.result())
+
+    if final_csv:
+        write_header = not os.path.exists(final_csv)
+        with open(final_csv, "a", newline="") as fout:
+            writer = csv.DictWriter(fout, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            for path in thread_files.values():
+                with open(path, newline="") as fin:
+                    for row in csv.DictReader(fin):
+                        writer.writerow(row)
+
     return results
 
 
-def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
+def batch_extract(
+    rows: list[dict],
+    max_workers: int = 2,
+    *,
+    final_csv: str | None = None,
+    tmp_dir: str | None = None,
+    fieldnames: list[str] | None = None,
+) -> list[dict]:
     """Extract item names for multiple rows concurrently."""
 
     def _worker(row: dict) -> dict:
@@ -147,4 +202,20 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
             "used_fallback": used_fallback,
         }
 
-    return _thread_map(_worker, rows, max_workers)
+    return _thread_map(
+        _worker,
+        rows,
+        max_workers,
+        fieldnames=fieldnames
+        or [
+            "month",
+            "url",
+            "item_count",
+            "image_url",
+            "item_name",
+            "error",
+            "used_fallback",
+        ],
+        final_csv=final_csv,
+        tmp_dir=tmp_dir,
+    )
