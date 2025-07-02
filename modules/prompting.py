@@ -6,5 +6,5 @@ def build_prompt(input_text: str) -> str:
     """
     return (
         f'Extract the brand name: "{input_text}"\n\n'
-        'Respond in JSON: {"name": <value>} or {"error": <reason>}'
+        'Respond in JSON: {"name": <name in English>} or {"error": <reason>}'
     )
