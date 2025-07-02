@@ -204,6 +204,12 @@ def _thread_map(
                 with open(path, newline="") as fin:
                     for row in csv.DictReader(fin):
                         writer.writerow(row)
+                os.remove(path)
+        if tmp_dir:
+            try:
+                os.rmdir(tmp_dir)
+            except OSError:
+                pass
 
     return results
 
