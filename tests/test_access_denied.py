@@ -30,6 +30,7 @@ def test_access_denied_error_propagates(monkeypatch):
     item_row = results[0]
     assert item_row["item_name"] == ""
     assert item_row["error"] == "Access Denied"
+    assert item_row["used_fallback"] is False
 
     def fail_prompt(*args, **kwargs):  # pragma: no cover - should not be called
         raise AssertionError("prompt_model should not be called")
@@ -38,5 +39,6 @@ def test_access_denied_error_propagates(monkeypatch):
 
     brand_row = eb.process_row(item_row)
 
+    assert brand_row["item_name"] == ""
     assert brand_row["brand"] == ""
     assert brand_row["brand_error"] == "Access Denied"
