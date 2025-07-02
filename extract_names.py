@@ -34,7 +34,8 @@ def main():
     rows = all_rows[start:end]
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
-    results = batch_process(rows, max_workers=2)
+    results = batch_process(rows, max_workers=5)
+    # limit to 5 concurrent due to Firecrawl API hobby plan rate limit
 
     with open("data/output/item_names.csv", "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
