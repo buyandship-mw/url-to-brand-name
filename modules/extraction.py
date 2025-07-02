@@ -91,6 +91,8 @@ def extract_item_data(url: str) -> tuple[str, str | None]:
     """Return item name and image URL for a given page."""
     meta = fetch_metadata(url)
     name = parse_metadata(meta)
+    if name and "access denied" in name.lower():
+        raise ValueError("Access Denied")
     if not name:
         raise ValueError("No valid item name found in metadata")
     image_url = parse_image_url(meta)
