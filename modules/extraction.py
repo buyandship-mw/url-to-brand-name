@@ -29,11 +29,11 @@ def parse_metadata(meta: dict) -> str:
 
 
 def parse_image_url(meta: dict) -> str | None:
-    """Return an image URL from metadata if available."""
+    """Return an image URL from metadata if available without query parameters."""
     for key in ["og:image", "ogImage", "twitter:image:src", "image"]:
         v = meta.get(key)
         if isinstance(v, str) and v.strip():
-            return v
+            return v.split("?", 1)[0]
     return None
 
 
