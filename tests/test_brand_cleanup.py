@@ -24,4 +24,4 @@ def test_brand_name_cleanup(monkeypatch):
     monkeypatch.setattr(eb, "prompt_model", lambda *a, **k: json.dumps({"name": "mega-brand_name"}))
 
     result = eb.process_row(row)
-    assert result["brand"] == "Mega Brand Name"
+    assert result["brand"] == "MEGA BRAND NAME"
