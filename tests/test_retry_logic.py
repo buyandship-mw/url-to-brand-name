@@ -32,11 +32,11 @@ def test_fetch_metadata_attempts_once(monkeypatch):
 def test_prompt_model_attempts_once(monkeypatch):
     calls = []
 
-    def fake_create(*args, **kwargs):
+    def fake_parse(*args, **kwargs):
         calls.append(True)
         raise Exception("fail")
 
-    monkeypatch.setattr(llm_client._client.responses, "create", fake_create)
+    monkeypatch.setattr(llm_client._client.responses, "parse", fake_parse)
     with pytest.raises(RuntimeError):
         llm_client.prompt_model("hi", retries=2)
     assert len(calls) == 1
@@ -67,12 +67,12 @@ def test_prompt_model_retries_on_rate_limit(monkeypatch):
 
     calls = []
 
-    def fake_create(*args, **kwargs):
+    def fake_parse(*args, **kwargs):
         calls.append(True)
         raise FakeRateLimitError("429")
 
     sleeps = []
-    monkeypatch.setattr(llm_client._client.responses, "create", fake_create)
+    monkeypatch.setattr(llm_client._client.responses, "parse", fake_parse)
     monkeypatch.setattr(llm_client.time, "sleep", lambda s: sleeps.append(s))
 
     with pytest.raises(RuntimeError):

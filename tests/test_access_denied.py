@@ -9,6 +9,7 @@ os.environ.setdefault("AZURE_OPENAI_API_KEY", "test")
 os.environ.setdefault("AZURE_OPENAI_ENDPOINT", "https://example.com/")
 os.environ.setdefault("AZURE_OPENAI_DEPLOYMENT", "test")
 
+import json
 import extract_brands as eb
 import modules.extraction as extraction
 
@@ -32,13 +33,18 @@ def test_access_denied_error_propagates(monkeypatch):
     assert item_row["error"] == "Access Denied"
     assert item_row["used_fallback"] is False
 
-    def fail_prompt(*args, **kwargs):  # pragma: no cover - should not be called
-        raise AssertionError("prompt_model should not be called")
+    prompts = []
 
-    monkeypatch.setattr(eb, "prompt_model", fail_prompt)
+    def fake_prompt(prompt: str):
+        prompts.append(prompt)
+        return json.dumps({"name": "Brand"})
+
+    monkeypatch.setattr(eb, "prompt_model", fake_prompt)
 
     brand_row = eb.process_row(item_row)
 
+    assert prompts
+    assert "http://example.com" in prompts[0]
     assert brand_row["item_name"] == ""
-    assert brand_row["brand"] == ""
-    assert brand_row["brand_error"] == "Access Denied"
+    assert brand_row["brand"] == "BRAND"
+    assert brand_row["brand_error"] == ""

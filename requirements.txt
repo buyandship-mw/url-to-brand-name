@@ -2,3 +2,4 @@ openai
 firecrawl
 python-dotenv
 requests
+pydantic

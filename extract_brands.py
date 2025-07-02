@@ -21,9 +21,11 @@ def process_row(row: dict) -> dict:
     url = row.get("url", "")
     item_count = row.get("item_count", "")
     image_url = row.get("image_url", "")
-    fallback = row.get("used_fallback", "False").lower() == "true"
+    fallback = str(row.get("used_fallback", "False")).lower() == "true"
 
     item_name = row.get("item_name", "").strip()
+    error = row.get("error", "").strip()
+
     input_text = url if fallback else item_name
     prompt = build_prompt(input_text)
     print(prompt)

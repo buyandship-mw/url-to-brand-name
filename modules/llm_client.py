@@ -4,6 +4,7 @@ import os
 import time
 from dotenv import load_dotenv
 from openai import OpenAI, RateLimitError
+from pydantic import BaseModel
 
 load_dotenv()
 _client = OpenAI(
@@ -13,20 +14,28 @@ _client = OpenAI(
 )
 
 
+class BrandResponse(BaseModel):
+    """Model for the brand extraction structured output."""
+
+    name: str | None = None
+    error: str | None = None
+
+
 def prompt_model(prompt: str, timeout: int = 3, retries: int = 3) -> str:
     """Send a prompt to OpenAI with retry logic and report the request duration."""
     last_error = None
     for attempt in range(retries + 1):
         try:
             start = time.perf_counter()
-            resp = _client.responses.create(
+            resp = _client.responses.parse(
                 model=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
                 input=prompt,
+                text_format=BrandResponse,
                 timeout=timeout,
             )
             duration = time.perf_counter() - start
             print(f"OpenAI request took {duration:.2f} seconds")
-            return resp.output[0].content[0].text
+            return resp.output_parsed.model_dump_json()
         except RateLimitError as e:
             last_error = e
             wait = min(2**attempt, 60)
