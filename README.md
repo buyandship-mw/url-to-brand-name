@@ -50,3 +50,6 @@ Both API helper functions include retry logic **only** when a `429` rate limit
 response is received. The metadata extraction helper still retries up to **two**
 times by default. Adjust the `retries` parameter in `modules/extraction.py` and
 `modules/llm_client.py` if you need more attempts.
+
+- `cleanup_brand_name()` returns brand names in **uppercase**. Do not convert them to title case.
+- `process_row()` should still call the LLM even when the item extraction step recorded an error. Do not bypass the LLM based on the `error` field.

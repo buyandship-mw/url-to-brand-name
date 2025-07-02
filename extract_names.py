@@ -12,9 +12,17 @@ FIELDNAMES = [
     "used_fallback",
 ]
 
-def batch_process(rows, max_workers: int = 2):
+def batch_process(
+    rows, max_workers: int = 2, *, final_csv: str | None = None, tmp_dir: str | None = None
+):
     """Return processed rows with extracted item names."""
-    return batch_extract(rows, max_workers=max_workers)
+    return batch_extract(
+        rows,
+        max_workers=max_workers,
+        final_csv=final_csv,
+        tmp_dir=tmp_dir,
+        fieldnames=FIELDNAMES,
+    )
 
 def main():
     parser = argparse.ArgumentParser(description="Extract item names from URLs")
@@ -34,13 +42,12 @@ def main():
     rows = all_rows[start:end]
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
-    results = batch_process(rows, max_workers=5)
-    # limit to 5 concurrent due to Firecrawl API hobby plan rate limit
-
-    with open("data/output/item_names.csv", "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        writer.writerows(results)
+    batch_process(
+        rows,
+        max_workers=5,
+        final_csv="data/output/item_names.csv",
+        tmp_dir="data/output/tmp_item_names",
+    )
 
 if __name__ == "__main__":
     main()

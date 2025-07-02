@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -32,13 +33,17 @@ def test_access_denied_error_propagates(monkeypatch):
     assert item_row["error"] == "Access Denied"
     assert item_row["used_fallback"] is False
 
-    def fail_prompt(*args, **kwargs):  # pragma: no cover - should not be called
-        raise AssertionError("prompt_model should not be called")
+    called = {}
 
-    monkeypatch.setattr(eb, "prompt_model", fail_prompt)
+    def fake_prompt(*args, **kwargs):
+        called["invoked"] = True
+        return json.dumps({"name": "Denied Brand"})
+
+    monkeypatch.setattr(eb, "prompt_model", fake_prompt)
 
     brand_row = eb.process_row(item_row)
 
+    assert called.get("invoked") is True
     assert brand_row["item_name"] == ""
-    assert brand_row["brand"] == ""
-    assert brand_row["brand_error"] == "Access Denied"
+    assert brand_row["brand"] == "DENIED BRAND"
+    assert brand_row["brand_error"] == ""
