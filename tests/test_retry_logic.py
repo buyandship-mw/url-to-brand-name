@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import pytest
 import requests
 
@@ -14,6 +15,7 @@ os.environ.setdefault("AZURE_OPENAI_DEPLOYMENT", "test")
 
 import modules.extraction as extraction
 import modules.llm_client as llm_client
+import extract_brands as eb
 
 
 def test_fetch_metadata_attempts_once(monkeypatch):
@@ -99,3 +101,29 @@ def test_fetch_metadata_parses_retry_after_message(monkeypatch):
         extraction.fetch_metadata("http://example.com", retries=0)
 
     assert sleeps == [7]
+
+
+def test_process_row_retries_on_json_decode_error(monkeypatch):
+    row = {
+        "month": "2025-08-01",
+        "url": "http://example.com",
+        "item_count": "1",
+        "item_name": "Some Item",
+        "image_url": "",
+    }
+
+    calls = []
+
+    def fake_prompt_model(*args, **kwargs):
+        calls.append(True)
+        if len(calls) == 1:
+            return "bad json"
+        return json.dumps({"name": "BrandX"})
+
+    monkeypatch.setattr(eb, "prompt_model", fake_prompt_model)
+
+    result = eb.process_row(row)
+
+    assert len(calls) == 2
+    assert result["brand"] == "Brandx"
+    assert result["brand_error"] == ""

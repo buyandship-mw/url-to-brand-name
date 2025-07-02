@@ -13,15 +13,16 @@ def cleanup_brand_name(name: str) -> str:
         return ""
     cleaned = name.replace("_", " ").replace("-", " ")
     cleaned = " ".join(cleaned.split())
-    return cleaned.upper()
+    return cleaned.title()
 
-def process_row(row: dict) -> dict:
+def process_row(row: dict, decode_retries: int = 1) -> dict:
     """Process a single CSV row and return the brand extraction result."""
     month = row.get("month", "")
     url = row.get("url", "")
     item_count = row.get("item_count", "")
     image_url = row.get("image_url", "")
-    fallback = row.get("used_fallback", "False").lower() == "true"
+    fallback = str(row.get("used_fallback", "False")).lower() == "true"
+    existing_error = row.get("error", "")
 
     item_name = row.get("item_name", "").strip()
     input_text = url if fallback else item_name
@@ -29,13 +30,22 @@ def process_row(row: dict) -> dict:
     print(prompt)
 
     brand = ""
-    brand_error = ""
-    try:
-        raw = prompt_model(prompt)
-        data = json.loads(raw)
-        brand = cleanup_brand_name(data.get("name", ""))
-    except Exception as e:
-        brand_error = str(e)
+    brand_error = existing_error
+    if not brand_error:
+        for attempt in range(decode_retries + 1):
+            try:
+                raw = prompt_model(prompt)
+                data = json.loads(raw)
+                brand = cleanup_brand_name(data.get("name", ""))
+                brand_error = ""
+                break
+            except json.JSONDecodeError as e:
+                brand_error = str(e)
+                if attempt < decode_retries:
+                    continue
+            except Exception as e:
+                brand_error = str(e)
+                break
 
     return {
         "month": month,
