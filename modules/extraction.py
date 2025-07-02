@@ -47,6 +47,11 @@ def parse_image_url(meta: dict) -> str | None:
     return None
 
 
+def _normalize_whitespace(text: str) -> str:
+    """Return ``text`` collapsed into a single line."""
+    return " ".join(text.split()) if text else ""
+
+
 def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
     """
     Call Firecrawl to fetch page metadata with concurrent-safe rate limiting.
@@ -101,7 +106,9 @@ def fetch_metadata(url: str, timeout: int = 20000, retries: int = 2) -> dict:
                 with RATE_LIMIT_LOCK:
                     new_next_allowed_time = time.time() + wait
                     NEXT_ALLOWED_TIME = max(NEXT_ALLOWED_TIME, new_next_allowed_time)
-                
+
+                time.sleep(wait)
+
                 # If we have retries left, continue to the next loop iteration.
                 # The check at the top of the loop will now handle the sleep.
                 if attempt < retries:
@@ -131,12 +138,12 @@ def extract_item_data(url: str) -> tuple[str, str | None]:
     name = parse_metadata(meta)
     
     if name and "access denied" in name.lower():
-        raise ValueError(f"Access Denied for URL: {url}")
+        raise ValueError("Access Denied")
     if not name:
         raise ValueError(f"No valid item name found in metadata for URL: {url}")
         
     image_url = parse_image_url(meta)
-    return name, image_url
+    return _normalize_whitespace(name), image_url
 
 
 def extract_item_name(url: str) -> str:
@@ -231,9 +238,11 @@ def batch_extract(
         except Exception as e:
             print(f"Could not extract data for {url}. Error: {e}")
             error = str(e)
-            item_name = original_item_name # Fallback to original name on error
+            item_name = original_item_name  # Fallback to original name on error
             image_url = ""
             used_fallback = bool(item_name)
+
+        item_name = _normalize_whitespace(item_name)
 
         # Return a new dictionary with the extracted data
         return {
