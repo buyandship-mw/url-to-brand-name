@@ -1,6 +1,8 @@
 import csv
 import argparse
-from modules.extraction import batch_extract
+import tempfile
+from pathlib import Path
+from modules.extraction import batch_extract, merge_thread_csvs
 
 FIELDNAMES = [
     "month",
@@ -14,7 +16,15 @@ FIELDNAMES = [
 
 def batch_process(rows, max_workers: int = 2):
     """Return processed rows with extracted item names."""
-    return batch_extract(rows, max_workers=max_workers)
+    tmp_dir = Path(tempfile.mkdtemp())
+    results = batch_extract(
+        rows,
+        max_workers=max_workers,
+        tmp_dir=tmp_dir,
+        fieldnames=FIELDNAMES,
+    )
+    merge_thread_csvs(tmp_dir, Path("data/output/item_names.csv"), FIELDNAMES)
+    return results
 
 def main():
     parser = argparse.ArgumentParser(description="Extract item names from URLs")
@@ -36,11 +46,6 @@ def main():
 
     results = batch_process(rows, max_workers=5)
     # limit to 5 concurrent due to Firecrawl API hobby plan rate limit
-
-    with open("data/output/item_names.csv", "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        writer.writerows(results)
 
 if __name__ == "__main__":
     main()

@@ -2,9 +2,21 @@ import csv
 import json
 import os
 import argparse
+import tempfile
+from pathlib import Path
 from modules.prompting import build_prompt
 from modules.llm_client import prompt_model
-from modules.extraction import _thread_map
+from modules.extraction import _thread_map, write_thread_csv_row, merge_thread_csvs
+
+FIELDNAMES = [
+    "month",
+    "url",
+    "item_count",
+    "item_name",
+    "image_url",
+    "brand",
+    "brand_error",
+]
 
 
 def cleanup_brand_name(name: str) -> str:
@@ -21,7 +33,7 @@ def process_row(row: dict) -> dict:
     url = row.get("url", "")
     item_count = row.get("item_count", "")
     image_url = row.get("image_url", "")
-    fallback = row.get("used_fallback", "False").lower() == "true"
+    fallback = str(row.get("used_fallback", "False")).lower() == "true"
 
     item_name = row.get("item_name", "").strip()
     input_text = url if fallback else item_name
@@ -51,7 +63,16 @@ def batch_process(rows, max_workers: int | None = None) -> list[dict]:
     """Process rows concurrently and return brand extraction results."""
     if max_workers is None:
         max_workers = os.cpu_count() or 1
-    return _thread_map(process_row, rows, max_workers)
+    tmp_dir = Path(tempfile.mkdtemp())
+
+    def _worker(row: dict) -> dict:
+        result = process_row(row)
+        write_thread_csv_row(result, FIELDNAMES, tmp_dir)
+        return result
+
+    results = _thread_map(_worker, rows, max_workers)
+    merge_thread_csvs(tmp_dir, Path("data/output/brands.csv"), FIELDNAMES)
+    return results
 
 
 def main():
@@ -73,20 +94,6 @@ def main():
     print(f"Processing rows {start + 1} to {min(end, len(all_rows))} of {len(all_rows)}")
 
     results = batch_process(rows)
-
-    fieldnames = [
-        "month",
-        "url",
-        "item_count",
-        "item_name",
-        "image_url",
-        "brand",
-        "brand_error",
-    ]
-    with open("data/output/brands.csv", "a", newline="") as f_out:
-        writer = csv.DictWriter(f_out, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(results)
 
 if __name__ == "__main__":
     main()

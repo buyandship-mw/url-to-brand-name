@@ -3,7 +3,10 @@
 import os
 import time
 import re
+import csv
+import tempfile
 import threading
+from pathlib import Path
 from dotenv import load_dotenv
 from firecrawl import FirecrawlApp
 import requests
@@ -105,6 +108,31 @@ def extract_item_name(url: str) -> str:
     return name
 
 
+def write_thread_csv_row(row: dict, fieldnames: list[str], tmp_dir: Path) -> None:
+    """Append a row to a CSV specific to the current thread."""
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    path = tmp_dir / f"thread_{threading.get_ident()}.csv"
+    write_header = not path.exists()
+    with path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def merge_thread_csvs(tmp_dir: Path, output_path: Path, fieldnames: list[str]) -> None:
+    """Merge thread CSVs into one file and remove the temporary files."""
+    with output_path.open("w", newline="") as f_out:
+        writer = csv.DictWriter(f_out, fieldnames=fieldnames)
+        writer.writeheader()
+        for thread_file in sorted(tmp_dir.glob("thread_*.csv")):
+            with thread_file.open(newline="") as f_in:
+                for row in csv.DictReader(f_in):
+                    writer.writerow(row)
+            thread_file.unlink()
+    tmp_dir.rmdir()
+
+
 def _thread_map(fn, items, max_workers: int = 2):
     """Run tasks in a thread pool and return all results."""
     from concurrent.futures import ThreadPoolExecutor
@@ -117,8 +145,20 @@ def _thread_map(fn, items, max_workers: int = 2):
     return results
 
 
-def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
+def batch_extract(
+    rows: list[dict],
+    max_workers: int = 2,
+    *,
+    tmp_dir: Path | None = None,
+    fieldnames: list[str] | None = None,
+) -> list[dict]:
     """Extract item names for multiple rows concurrently."""
+
+    if fieldnames is not None:
+        if tmp_dir is None:
+            tmp_dir = Path(tempfile.mkdtemp())
+    else:
+        fieldnames = []
 
     def _worker(row: dict) -> dict:
         month = row.get("month", "")
@@ -137,7 +177,7 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
             item_name = original_item_name
             used_fallback = bool(item_name)
 
-        return {
+        row_data = {
             "month": month,
             "url": url,
             "item_count": item_count,
@@ -146,5 +186,9 @@ def batch_extract(rows: list[dict], max_workers: int = 2) -> list[dict]:
             "error": error,
             "used_fallback": used_fallback,
         }
+        if fieldnames:
+            write_thread_csv_row(row_data, fieldnames, tmp_dir)
+        return row_data
 
-    return _thread_map(_worker, rows, max_workers)
+    results = _thread_map(_worker, rows, max_workers)
+    return results
